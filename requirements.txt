@@ -1,0 +1,5 @@
+pytube
+youtube_transcript_api
+requests
+beautifulsoup4
+flask 
