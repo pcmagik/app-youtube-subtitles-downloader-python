@@ -10,10 +10,13 @@ COPY requirements.txt .
 # Instalujemy zależności
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Tworzymy katalog templates
+RUN mkdir -p /app/templates
+
 # Kopiujemy pliki aplikacji
 COPY youtube_down_python.py .
 COPY app.py .
-COPY templates templates/
+COPY templates/index.html /app/templates/
 
 # Tworzymy katalog na pobrane pliki
 RUN mkdir -p /app/downloads
