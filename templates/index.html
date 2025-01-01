@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Transcripts Downloader</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #ff0000;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #cc0000;
+        }
+        #status, #error {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        #status {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        #error {
+            background-color: #ffebee;
+            color: #c62828;
+            display: none;
+        }
+        #fileList {
+            margin-top: 20px;
+        }
+        .file-item {
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin: 5px 0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .file-item a {
+            color: #1976d2;
+            text-decoration: none;
+        }
+        .file-item a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>YouTube Transcripts Downloader</h1>
+        <div>
+            <input type="text" id="urlInput" placeholder="Wklej link do filmu lub playlisty YouTube">
+            <button onclick="startDownload()">Pobierz napisy</button>
+        </div>
+        <div id="status" style="display: none;"></div>
+        <div id="error" style="display: none;"></div>
+        <div id="fileList"></div>
+    </div>
+
+    <script>
+        function startDownload() {
+            const url = document.getElementById('urlInput').value;
+            const statusDiv = document.getElementById('status');
+            const errorDiv = document.getElementById('error');
+            
+            statusDiv.style.display = 'block';
+            errorDiv.style.display = 'none';
+            statusDiv.textContent = 'Rozpoczynam pobieranie...';
+
+            fetch('/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `url=${encodeURIComponent(url)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    pollStatus();
+                }
+            })
+            .catch(error => showError(error));
+        }
+
+        function pollStatus() {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    updateStatus(data);
+                    if (data.status !== 'complete' && data.status !== 'error') {
+                        setTimeout(pollStatus, 1000);
+                    }
+                    if (data.status === 'complete') {
+                        updateFileList();
+                    }
+                });
+        }
+
+        function updateStatus(data) {
+            const statusDiv = document.getElementById('status');
+            if (data.status === 'start') {
+                statusDiv.textContent = `Rozpoczynam pobieranie ${data.total} filmów...`;
+            } else if (data.status === 'progress') {
+                statusDiv.textContent = data.message;
+            } else if (data.status === 'complete') {
+                statusDiv.textContent = 'Pobieranie zakończone!';
+            } else if (data.status === 'error') {
+                showError(data.message);
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            const statusDiv = document.getElementById('status');
+            statusDiv.style.display = 'none';
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = `Błąd: ${message}`;
+        }
+
+        function updateFileList() {
+            fetch('/downloads')
+                .then(response => response.json())
+                .then(data => {
+                    const fileList = document.getElementById('fileList');
+                    fileList.innerHTML = '<h2>Pobrane pliki:</h2>';
+                    data.files.forEach(file => {
+                        const fileDiv = document.createElement('div');
+                        fileDiv.className = 'file-item';
+                        fileDiv.innerHTML = `
+                            <span>${file}</span>
+                            <a href="/download_file/${encodeURIComponent(file)}" download>Pobierz</a>
+                        `;
+                        fileList.appendChild(fileDiv);
+                    });
+                });
+        }
+
+        // Załaduj listę plików przy starcie
+        updateFileList();
+    </script>
+</body>
+</html> 
